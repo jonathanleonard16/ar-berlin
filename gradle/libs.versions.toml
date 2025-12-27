@@ -50,7 +50,7 @@ play-services-location = { group = "com.google.android.gms", name = "play-servic
 
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 
-sceneview-ar = { group = "io.github.sceneview", name = "ar", version.ref = "sceneview" }
+sceneview-ar = { group = "io.github.sceneview", name = "arsceneview", version.ref = "sceneview" }
 
 
 [plugins]
