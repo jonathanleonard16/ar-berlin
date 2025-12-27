@@ -4,7 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,6 +23,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.runtime.getValue
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import com.jonathan.arberlin.features.ar.ARRoute
 import com.jonathan.arberlin.ui.navigation.Screen
 import com.jonathan.arberlin.features.map.MapRoute
 
@@ -105,7 +105,7 @@ fun ARBerlinAppContent() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Map.route) { MapRoute()}
-            composable(Screen.AR.route) { Text("AR Screen Placeholder")  }
+            composable(Screen.AR.route) { ARRoute() }
             composable(Screen.Collections.route) { Text("Collections Screen Placeholder")  }
         }
     }
