@@ -27,11 +27,10 @@ data class MapUiState(
 )
 
 
-
 class MapViewModel(
     private val poiRepository: PoiRepository,
     private val locationRepository: LocationRepository
-): ViewModel() {
+) : ViewModel() {
 
     private val permissionGranted = MutableStateFlow(false)
     fun onPermissionGranted() {
@@ -65,21 +64,11 @@ class MapViewModel(
             }
 
         }
-//    combine(
-//        poiRepository.getPoisWithStatus(),
-//        locationRepository.getLocationUpdates()
-//    ) { poisList, location ->
-//        MapUiState(
-//            pois = poisList,
-//            userLocation = location,
-//            isLoading = false
-//        )
-//    }
-    .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = MapUiState()
-    )
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = MapUiState()
+        )
 
     companion object {
         val Factory: ViewModelProvider.Factory = viewModelFactory {

@@ -1,14 +1,19 @@
 package com.jonathan.arberlin.features.map
 
 import android.Manifest
+import android.app.Activity
 import android.content.pm.PackageManager
+
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Scaffold
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,13 +22,25 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationRequest
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import com.google.android.gms.location.LocationSettingsResponse
+import com.google.android.gms.location.Priority
+import com.google.android.gms.location.SettingsClient
 import com.google.android.gms.maps.model.BitmapDescriptorFactory
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.android.gms.maps.model.MapStyleOptions
+import com.google.android.gms.tasks.Task
 import com.google.maps.android.compose.GoogleMap
 import com.google.maps.android.compose.MapProperties
 import com.google.maps.android.compose.Marker
@@ -36,6 +53,42 @@ fun MapRoute(
     viewModel: MapViewModel = viewModel(factory = MapViewModel.Factory),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = LocalContext.current
+
+
+    val settingResultRequest = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            viewModel.onPermissionGranted()
+        } else {
+            Log.d("MapRoute", "User denied enabling location services")
+        }
+    }
+
+
+    fun checkLocationSettings() {
+        val locationRequest = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 3000).build()
+        val builder = LocationSettingsRequest.Builder().addLocationRequest(locationRequest)
+        val client: SettingsClient = LocationServices.getSettingsClient(context)
+        val task: Task<LocationSettingsResponse> = client.checkLocationSettings(builder.build())
+
+        task.addOnSuccessListener {
+            viewModel.onPermissionGranted()
+        }
+
+        task.addOnFailureListener { exception ->
+            if (exception is ResolvableApiException) {
+                try {
+                    val intentSenderRequest = IntentSenderRequest.Builder(exception.resolution).build()
+                    settingResultRequest.launch(intentSenderRequest)
+                } catch (e: Exception) {
+
+                }
+            }
+        }
+    }
+
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -43,11 +96,11 @@ fun MapRoute(
         val isGranted = permissions[Manifest.permission.ACCESS_FINE_LOCATION] == true || permissions[Manifest.permission.ACCESS_COARSE_LOCATION] == true
 
         if (isGranted) {
-            viewModel.onPermissionGranted()
+            checkLocationSettings()
         }
     }
 
-    val context = LocalContext.current
+
     LaunchedEffect(Unit) {
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
@@ -55,7 +108,7 @@ fun MapRoute(
         ) == PackageManager.PERMISSION_GRANTED
 
         if (hasPermission) {
-            viewModel.onPermissionGranted()
+            checkLocationSettings()
         } else {
             permissionLauncher.launch(
                 arrayOf(
@@ -126,5 +179,34 @@ fun MapScreen(
 //                            "${uiState.userLocation?.longitude}"
 //                )
 //            }
+
+            val location = uiState.userLocation
+            if (location != null) {
+                val isVPS = location.provider == "AR_VPS_PROVIDER"
+                Column (
+                    modifier = Modifier
+                        .align(Alignment.TopCenter)
+                        .padding(top = 64.dp) // Push down below status bar
+                        .background(Color.Black.copy(alpha = 0.7f), RoundedCornerShape(8.dp))
+                        .padding(16.dp)
+                ) {
+                    Text(
+                        text = if (isVPS) "SOURCE: VPS (Vision)" else "SOURCE: GPS (Standard)",
+                        color = if (isVPS) Color.Green else Color.White, // Green = Good!
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Acc: ${location.accuracy}m",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                    Text(
+                        text = "Lat: ${location.latitude}",
+                        color = Color.White,
+                        fontSize = 12.sp
+                    )
+                }
+
+            }
         }
 }
