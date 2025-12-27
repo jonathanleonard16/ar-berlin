@@ -7,14 +7,17 @@ import androidx.lifecycle.ViewModelProvider.AndroidViewModelFactory.Companion.AP
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.google.ar.core.Earth
+import com.google.ar.core.TrackingState
 import com.jonathan.arberlin.ARBerlinApp
 import com.jonathan.arberlin.data.local.entity.PoiWithDiscovery
 import com.jonathan.arberlin.data.repository.LocationRepository
 import com.jonathan.arberlin.data.repository.PoiRepository
 import com.jonathan.arberlin.domain.ARScanManager
-import com.jonathan.arberlin.features.map.MapViewModel
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -31,7 +34,12 @@ class ARViewModel(
     private val locationRepository: LocationRepository,
     private val scanManager: ARScanManager
 ) : ViewModel() {
-    private val VISIBILITY_RADIUS_METERS = 20.0
+    private val VISIBILITY_RADIUS_METERS = 50.0
+
+    private var lastUpdateTimestamp = 0L
+
+    private val _discoveryEvents = MutableSharedFlow<String>()
+    val discoveryEvents = _discoveryEvents.asSharedFlow()
 
     val uiState: StateFlow<ARUiState> = combine(
         poiRepository.getPoisWithStatus(),
@@ -63,7 +71,42 @@ class ARViewModel(
         initialValue = ARUiState()
     )
 
-    fun onARFrame(hitPoiId: Long?) {
+    fun onARFrame(frameTime: Long, earth: Earth?, hitPoiId: Long?) {
+
+        if (earth?.trackingState == TrackingState.TRACKING) {
+            val pose = earth.cameraGeospatialPose
+
+
+
+            if (pose.horizontalAccuracy < 5.0) {
+                if (System.currentTimeMillis() - lastUpdateTimestamp > 1000) {
+                    val fixedLocation = Location("AR_VPS_PROVIDER").apply {
+                        latitude = pose.latitude
+                        longitude = pose.longitude
+                        altitude = pose.altitude
+                        accuracy = pose.horizontalAccuracy.toFloat()
+                        time = System.currentTimeMillis()
+
+                    }
+
+                    locationRepository.provideARLocation(fixedLocation)
+                    lastUpdateTimestamp = System.currentTimeMillis()
+                }
+            }
+        }
+
+        if (hitPoiId == null) {
+            scanManager.processFrame(null)
+            return
+        }
+
+        val poi = uiState.value.nearbyPois.find { it.poi.id == hitPoiId }
+
+        if (poi != null && poi.discovery != null) {
+            scanManager.processFrame(null)
+            return
+        }
+
         val isScanComplete = scanManager.processFrame(hitPoiId)
 
         if (isScanComplete && hitPoiId != null) {
@@ -74,7 +117,9 @@ class ARViewModel(
     private fun markAsDiscovered(id: Long) {
         viewModelScope.launch {
             poiRepository.markAsDiscovered(id)
-            // TODO: Show success message with Toast
+
+            val poiName = uiState.value.nearbyPois.find { it.poi.id == id }?.poi?.name ?: "Object"
+            _discoveryEvents.emit("$poiName discovered!")
         }
     }
 
