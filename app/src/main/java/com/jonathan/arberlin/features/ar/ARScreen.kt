@@ -4,19 +4,32 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.location.Location
 import android.util.Log
-import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberBottomSheetScaffoldState
+import androidx.compose.material3.rememberStandardBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -39,6 +52,7 @@ import com.google.ar.core.Config
 import com.google.ar.core.Earth
 import com.google.ar.core.Pose
 import com.google.ar.core.TrackingState
+import com.jonathan.arberlin.data.local.entity.PoiWithDiscovery
 import io.github.sceneview.ar.ARScene
 import io.github.sceneview.ar.node.AnchorNode
 import io.github.sceneview.math.Position
@@ -48,6 +62,7 @@ import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberMaterialLoader
 import io.github.sceneview.rememberModelLoader
 import io.github.sceneview.rememberNodes
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.acos
 import kotlin.math.sqrt
@@ -58,7 +73,7 @@ fun findFocusedPoiId(
     anchors: Map<Long, Node>,
     maxAngleDegrees: Float = 8f,
 ): Long? {
-    val camPos  = Position(cameraPose.tx(), cameraPose.ty(), cameraPose.tz())
+    val camPos = Position(cameraPose.tx(), cameraPose.ty(), cameraPose.tz())
 
     val zAxis = cameraPose.zAxis
     val camForward = Position(-zAxis[0], -zAxis[1], -zAxis[2])
@@ -101,8 +116,11 @@ fun ARRoute(
     viewModel: ARViewModel = viewModel(factory = ARViewModel.Factory)
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val selectedPoi by viewModel.selectedPoi.collectAsState()
     val scanProgress by viewModel.scanProgress.collectAsState()
     val context = LocalContext.current
+
+    var toastMessage by remember { mutableStateOf<String?>(null) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions()
@@ -117,8 +135,14 @@ fun ARRoute(
     }
 
     LaunchedEffect(Unit) {
-        val hasCamera = ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
-        val hasLocation = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        val hasCamera = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        val hasLocation = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
 
         if (!hasCamera || !hasLocation) {
             permissionLauncher.launch(
@@ -130,20 +154,62 @@ fun ARRoute(
             )
         }
         viewModel.discoveryEvents.collectLatest { message ->
-            Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+            toastMessage = message
+            delay(2000)
+            toastMessage = null
         }
     }
 
-    ARScreen(
-        uiState = uiState,
-        scanProgress = scanProgress,
-        onFrame = viewModel::onARFrame
-    )
+    Box(modifier = Modifier.fillMaxSize()) {
+
+
+        ARScreen(
+            uiState = uiState,
+            selectedPoi = selectedPoi,
+            onDismissSheet = viewModel::dismissBottomSheet,
+            scanProgress = scanProgress,
+            onFrame = viewModel::onARFrame
+        )
+
+        AnimatedVisibility(
+            visible = toastMessage != null,
+            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 64.dp)
+                .padding(horizontal = 16.dp)
+        ) {
+            Surface(
+                color = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = RoundedCornerShape(50),
+                shadowElevation = 6.dp,
+                modifier = Modifier.wrapContentSize()
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+
+
+                    Text(
+                        text = toastMessage ?: "",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ARScreen(
     uiState: ARUiState,
+    selectedPoi: PoiWithDiscovery?,
+    onDismissSheet: () -> Unit,
     scanProgress: Float,
     onFrame: (Long, Earth?, Long?) -> Unit
 ) {
@@ -154,92 +220,130 @@ fun ARScreen(
     val childNodes = rememberNodes()
     val createdAnchors = remember { mutableStateMapOf<Long, AnchorNode>() }
 
-    var focusedPoiName by remember { mutableStateOf<String?>(null)}
+    var focusedPoiName by remember { mutableStateOf<String?>(null) }
 
     var vpsStatusMessage by remember { mutableStateOf("Waiting for VPS...") }
     var isLocalized by remember { mutableStateOf(false) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        ARScene(
-            modifier = Modifier.fillMaxSize(),
-            childNodes = childNodes,
-            engine = engine,
-            modelLoader = modelLoader,
-            materialLoader = materialLoader,
-            sessionConfiguration = { session, config ->
-                config.geospatialMode = Config.GeospatialMode.ENABLED
-                config.focusMode = Config.FocusMode.AUTO
-                config.streetscapeGeometryMode = Config.StreetscapeGeometryMode.ENABLED
-            },
-            onSessionUpdated = { session, frame ->
-                val earth = session.earth
+    val scaffoldState = rememberBottomSheetScaffoldState(
+        bottomSheetState = rememberStandardBottomSheetState(
+            initialValue = SheetValue.PartiallyExpanded,
+            skipHiddenState = true
+        )
+    )
 
-                val focusedId = findFocusedPoiId(
-                    cameraPose = frame.camera.pose,
-                    anchors = createdAnchors
-                )
+    LaunchedEffect(selectedPoi) {
+        if (selectedPoi != null) {
+            scaffoldState.bottomSheetState.expand()
+        } else {
+            scaffoldState.bottomSheetState.partialExpand()
+        }
+    }
 
-                if (focusedId != null) {
-                    val poi = uiState.nearbyPois.find {it.poi.id == focusedId}
-                    focusedPoiName = poi?.poi?.name
+    BottomSheetScaffold(
+        scaffoldState = scaffoldState,
+        sheetPeekHeight = 50.dp, // Height of the "Hint" bar
+        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        sheetContent = {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                if (selectedPoi != null) {
+                    PoiDetailsContent(poi = selectedPoi)
                 } else {
-                    focusedPoiName = null
+                    ScanHintContent(vpsStatus = if (isLocalized) "Scan Objects" else "Scan Buildings")
                 }
+            }
+        }
+    ) { paddingValues ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            ARScene(
+                modifier = Modifier.fillMaxSize(),
+                childNodes = childNodes,
+                engine = engine,
+                modelLoader = modelLoader,
+                materialLoader = materialLoader,
+                sessionConfiguration = { _, config ->
+                    config.geospatialMode = Config.GeospatialMode.ENABLED
+                    config.focusMode = Config.FocusMode.AUTO
+                    config.streetscapeGeometryMode = Config.StreetscapeGeometryMode.ENABLED
+                },
+                onSessionUpdated = { session, frame ->
+                    val earth = session.earth
 
-                if (earth?.trackingState == TrackingState.TRACKING && earth.earthState == Earth.EarthState.ENABLED) {
-                    val pose = earth.cameraGeospatialPose
-                    val accuracy = pose.horizontalAccuracy
-                    val orientationAccuracy = pose.orientationYawAccuracy
+                    val focusedId = findFocusedPoiId(
+                        cameraPose = frame.camera.pose,
+                        anchors = createdAnchors
+                    )
 
-                    val isPrecise = accuracy < 5.0 && orientationAccuracy < 10.0
+                    if (focusedId != null) {
+                        val poi = uiState.nearbyPois.find { it.poi.id == focusedId }
+                        focusedPoiName = poi?.poi?.name
+                    } else {
+                        focusedPoiName = null
+                    }
+
+                    if (earth?.trackingState == TrackingState.TRACKING && earth.earthState == Earth.EarthState.ENABLED) {
+                        val pose = earth.cameraGeospatialPose
+                        val accuracy = pose.horizontalAccuracy
+                        val orientationAccuracy = pose.orientationYawAccuracy
+
+                        val isPrecise = accuracy < 5.0 && orientationAccuracy < 10.0
 
 
 
-                    if (isPrecise) {
+                        if (isPrecise) {
 
-                        isLocalized = true
-                        vpsStatusMessage = "VPS Locked! (Err: ${accuracy.toInt()}m)"
+                            isLocalized = true
+                            vpsStatusMessage = "VPS Locked! (Err: ${accuracy.toInt()}m)"
 
 
 
-                        uiState.nearbyPois.forEach { item ->
-                            val poiId = item.poi.id
+                            uiState.nearbyPois.forEach { item ->
+                                val poiId = item.poi.id
 
-                            if (!createdAnchors.containsKey(poiId)) {
-                                Log.d(
-                                    "AR_DEBUG",
-                                    "Attempting to create anchor for ${item.poi.name}"
-                                )
-                                try {
+                                if (!createdAnchors.containsKey(poiId)) {
+                                    Log.d(
+                                        "AR_DEBUG",
+                                        "Attempting to create anchor for ${item.poi.name}"
+                                    )
+                                    try {
 
-                                    earth.resolveAnchorOnTerrainAsync(
-                                        item.poi.latitude,
-                                        item.poi.longitude,
-                                        0.0,
-                                        0f, 0f, 0f, 1f
-                                    ) { anchor, state ->
-                                        if (state == Anchor.TerrainAnchorState.SUCCESS && anchor != null) {
-                                            val anchorNode =
-                                                AnchorNode(engine = engine, anchor = anchor)
-                                            Log.d("AR_DEBUG", "Anchor Created!")
-                                            val modelNode = ModelNode(
-                                                modelInstance = modelLoader.createModelInstance(
-                                                    assetFileLocation = "Box.glb"
-                                                ),
-                                                scaleToUnits = 1.0f
-                                            )
-                                            anchorNode.addChildNode(modelNode)
-                                            childNodes.add(anchorNode)
-                                            createdAnchors[poiId] = anchorNode
+                                        earth.resolveAnchorOnTerrainAsync(
+                                            item.poi.latitude,
+                                            item.poi.longitude,
+                                            0.0,
+                                            0f, 0f, 0f, 1f
+                                        ) { anchor, state ->
+                                            if (state == Anchor.TerrainAnchorState.SUCCESS && anchor != null) {
+                                                val anchorNode =
+                                                    AnchorNode(engine = engine, anchor = anchor)
+                                                Log.d("AR_DEBUG", "Anchor Created!")
+                                                val modelNode = ModelNode(
+                                                    modelInstance = modelLoader.createModelInstance(
+                                                        assetFileLocation = "Box.glb"
+                                                    ),
+                                                    scaleToUnits = 1.0f
+                                                )
+                                                anchorNode.addChildNode(modelNode)
+                                                childNodes.add(anchorNode)
+                                                createdAnchors[poiId] = anchorNode
+                                            }
+
                                         }
 
+                                        Log.d("AR_DEBUG", "Node added to scene")
+                                    } catch (e: Exception) {
+                                        Log.e("AR_DEBUG", "Error creating anchor", e)
                                     }
-
-                                    Log.d("AR_DEBUG", "Node added to scene")
-                                } catch (e: Exception) {
-                                    Log.e("AR_DEBUG", "Error creating anchor", e)
                                 }
-                            }
 
 //                        if (!createdAnchors.containsKey(9999L)) { // Unique ID
 //                            val cameraPose = earth.cameraGeospatialPose
@@ -266,28 +370,35 @@ fun ARScreen(
 //
 //                            Log.d("AR_DEBUG", "TEST BOX CREATED AT YOUR FEET!")
 //                        }
+                            }
+
+                        } else {
+                            isLocalized = false
+                            vpsStatusMessage =
+                                "Scan buildings to refine location...\\n(Current Err: ${accuracy.toInt()}m)"
+
                         }
-
-                    } else {
-                        isLocalized = false
-                        vpsStatusMessage = "Scan buildings to refine location...\\n(Current Err: ${accuracy.toInt()}m)"
-
                     }
+                    onFrame(frame.timestamp, session.earth, focusedId)
                 }
-                onFrame(frame.timestamp, session.earth, focusedId)
-            }
 
-        )
+            )
 
-        Column(modifier = Modifier
-            .padding(16.dp)
-            .align(Alignment.TopStart)
-            .background(if (isLocalized) Color.Green.copy(alpha=0.6f) else Color.Red.copy(alpha=0.6f), RoundedCornerShape(8.dp))
-            .padding(8.dp))
-        {
+            Column(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .align(Alignment.TopStart)
+                    .background(
+                        if (isLocalized) Color.Green.copy(alpha = 0.6f) else Color.Red.copy(
+                            alpha = 0.6f
+                        ), RoundedCornerShape(8.dp)
+                    )
+                    .padding(8.dp)
+            )
+            {
 
 
-            // Status Box
+                // Status Box
 //            Surface (
 //                color = if (isLocalized) Color.Green.copy(alpha=0.6f) else Color.Red.copy(alpha=0.6f),
 //                shape = RoundedCornerShape(8.dp)
@@ -296,7 +407,7 @@ fun ARScreen(
                     text = vpsStatusMessage,
                     color = Color.White,
 
-                )
+                    )
                 val loc = uiState.userLocation
                 if (loc != null) {
 
@@ -332,25 +443,66 @@ fun ARScreen(
                     )
 //                }
                 }
-            Spacer(modifier = Modifier.height(8.dp))
-            if (focusedPoiName != null) {
-                Text(
-                    text = "Target Acquired",
-                    color = Color.Green,
+                Spacer(modifier = Modifier.height(8.dp))
+                if (focusedPoiName != null) {
+                    Text(
+                        text = "Target Acquired",
+                        color = Color.Green,
 
-                )
-                Text(
-                    text = "Focusing: $focusedPoiName",
-                    color = Color.White
-                )
-            } else {
-                Text(
-                    text = "Scanning...",
-                    color = Color.Gray
-                )
+                        )
+                    Text(
+                        text = "Focusing: $focusedPoiName",
+                        color = Color.White
+                    )
+                } else {
+                    Text(
+                        text = "Scanning...",
+                        color = Color.Gray
+                    )
+                }
             }
+
         }
+    }
+}
 
 
+@Composable
+fun PoiDetailsContent(poi: PoiWithDiscovery) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .padding(bottom = 32.dp) // Space for nav bar
+    ) {
+        Text(
+            text = poi.poi.name,
+            style = MaterialTheme.typography.headlineMedium,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            text = "Status: ${if (poi.discovery != null) "Discovered ✅" else "Locked 🔒"}",
+            color = if (poi.discovery != null) Color.Green else Color.Gray
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = poi.poi.description,
+            style = MaterialTheme.typography.bodyLarge
+        )
+
+    }
+}
+
+@Composable
+fun ScanHintContent(vpsStatus: String) {
+    Column {
+        Text(
+            "AR Scanner Active",
+            fontWeight = FontWeight.Bold,
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(vpsStatus, color = Color.Gray)
+        Spacer(Modifier.height(32.dp)) // Padding for peek height
     }
 }
