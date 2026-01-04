@@ -22,6 +22,10 @@ interface PoiDao {
     @Query("SELECT * FROM points_of_interest")
     fun getPoisWithStatus(): Flow<List<PoiWithDiscovery>>
 
+    @Transaction
+    @Query("SELECT * FROM points_of_interest where id IN (SELECT poiId FROM discovery)")
+    fun getDiscoveredPois(): Flow<List<PoiWithDiscovery>>
+
     @Insert
     suspend fun insertDiscovery(discovery: Discovery)
 

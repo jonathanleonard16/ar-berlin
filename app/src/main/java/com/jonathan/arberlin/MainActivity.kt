@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -17,13 +18,21 @@ import com.jonathan.arberlin.ui.theme.ARBerlinTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Icon
+import androidx.compose.runtime.collectAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 import com.jonathan.arberlin.features.ar.ARRoute
+import com.jonathan.arberlin.features.collections.CollectionViewModel
+import com.jonathan.arberlin.features.collections.CollectionsScreen
+import com.jonathan.arberlin.features.collections.PoiDetailScreen
 import com.jonathan.arberlin.ui.navigation.Screen
 import com.jonathan.arberlin.features.map.MapRoute
 
@@ -65,14 +74,21 @@ fun GreetingPreview() {
 fun ARBerlinAppContent() {
     val navController = rememberNavController()
 
+
+    val activity = LocalContext.current as ComponentActivity
+
+    val sharedViewModel: CollectionViewModel = viewModel(
+        viewModelStoreOwner = activity,
+        factory = CollectionViewModel.Factory
+    )
+
     Scaffold(
         bottomBar = {
             NavigationBar {
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
 
-                Screen.entries.forEach {
-                    screen ->
+                Screen.entries.forEach { screen ->
 
                     val isSelected = currentRoute == screen.route
                     NavigationBarItem(
@@ -102,11 +118,47 @@ fun ARBerlinAppContent() {
         NavHost(
             navController = navController,
             startDestination = Screen.Map.route,
-            modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Map.route) { MapRoute()}
-            composable(Screen.AR.route) { ARRoute() }
-            composable(Screen.Collections.route) { Text("Collections Screen Placeholder")  }
+            composable(Screen.Map.route) {
+                Box(modifier = Modifier.padding(innerPadding)) {
+                    MapRoute()
+                }
+            }
+            composable(Screen.AR.route) {
+                Box(modifier = Modifier.padding(innerPadding)) {
+                    ARRoute()
+                }
+            }
+            composable(Screen.Collections.route) {
+                val list by sharedViewModel.collectionState.collectAsState()
+
+                CollectionsScreen(
+                    discoveredPois = list,
+                    onPoiClick = { poiId ->
+                        navController.navigate("poi_detail/$poiId")
+                    },
+                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                )
+            }
+
+            composable(
+                route = "poi_detail/{poiId}",
+                arguments = listOf(navArgument("poiId") { type = NavType.LongType })
+            ) { backStackEntry ->
+
+                val poiId = backStackEntry.arguments?.getLong("poiId")
+
+                val poi = poiId?.let { sharedViewModel.getPoiDetail(it) }
+
+                if (poi != null) {
+                    PoiDetailScreen(
+                        poi = poi,
+                        onBackClick = { navController.popBackStack() },
+                        modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                    )
+                }
+
+            }
         }
     }
 }

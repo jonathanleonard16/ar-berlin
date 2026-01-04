@@ -12,6 +12,8 @@ interface PoiRepository {
 
     suspend fun markAsDiscovered(poiId: Long)
 
+    fun getDiscoveredPois(): Flow<List<PoiWithDiscovery>>
+
 }
 
 class PoiRepositoryImpl(private val dao: PoiDao): PoiRepository {
@@ -30,5 +32,9 @@ class PoiRepositoryImpl(private val dao: PoiDao): PoiRepository {
             discoveredAt = System.currentTimeMillis()
         )
         dao.insertDiscovery(discovery)
+    }
+
+    override fun getDiscoveredPois(): Flow<List<PoiWithDiscovery>> {
+        return dao.getDiscoveredPois()
     }
 }

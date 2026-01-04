@@ -87,4 +87,6 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
 
     implementation(libs.sceneview.ar)
+
+    implementation("io.coil-kt:coil-compose:2.5.0")
 }
