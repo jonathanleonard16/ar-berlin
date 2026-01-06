@@ -2,7 +2,6 @@ package com.jonathan.arberlin.features.ar
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.location.Location
 import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,7 +10,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -44,7 +43,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.google.ar.core.Anchor
@@ -220,9 +218,6 @@ fun ARScreen(
     val childNodes = rememberNodes()
     val createdAnchors = remember { mutableStateMapOf<Long, AnchorNode>() }
 
-    var focusedPoiName by remember { mutableStateOf<String?>(null) }
-
-    var vpsStatusMessage by remember { mutableStateOf("Waiting for VPS...") }
     var isLocalized by remember { mutableStateOf(false) }
 
     val scaffoldState = rememberBottomSheetScaffoldState(
@@ -242,8 +237,15 @@ fun ARScreen(
 
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
-        sheetPeekHeight = 50.dp, // Height of the "Hint" bar
-        sheetContainerColor = MaterialTheme.colorScheme.surface,
+        containerColor = Color(0xFFFDFAFF),
+        sheetPeekHeight = 50.dp,
+        sheetContainerColor = Color(0xFFFDFAFF),
+        sheetContentColor = Color(0xFF8527B8),
+        sheetDragHandle = {
+            BottomSheetDefaults.DragHandle(
+                color = Color(0xFFF1D8FF),
+            )
+        },
         sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         sheetContent = {
             Box(
@@ -254,7 +256,7 @@ fun ARScreen(
                 if (selectedPoi != null) {
                     PoiDetailsContent(poi = selectedPoi)
                 } else {
-                    ScanHintContent(vpsStatus = if (isLocalized) "Scan Objects" else "Scan Buildings")
+                    ScanHintContent(vpsStatus = if (isLocalized) "Find the object and scan it (by pointing the camera towards the object)." else "Scan Buildings to refine location.")
                 }
             }
         }
@@ -283,13 +285,6 @@ fun ARScreen(
                         anchors = createdAnchors
                     )
 
-                    if (focusedId != null) {
-                        val poi = uiState.nearbyPois.find { it.poi.id == focusedId }
-                        focusedPoiName = poi?.poi?.name
-                    } else {
-                        focusedPoiName = null
-                    }
-
                     if (earth?.trackingState == TrackingState.TRACKING && earth.earthState == Earth.EarthState.ENABLED) {
                         val pose = earth.cameraGeospatialPose
                         val accuracy = pose.horizontalAccuracy
@@ -302,7 +297,6 @@ fun ARScreen(
                         if (isPrecise) {
 
                             isLocalized = true
-                            vpsStatusMessage = "VPS Locked! (Err: ${accuracy.toInt()}m)"
 
 
 
@@ -344,38 +338,10 @@ fun ARScreen(
                                         Log.e("AR_DEBUG", "Error creating anchor", e)
                                     }
                                 }
-
-//                        if (!createdAnchors.containsKey(9999L)) { // Unique ID
-//                            val cameraPose = earth.cameraGeospatialPose
-//                            // Create anchor 0.0001 degrees lat away (~10 meters) or just use camera position?
-//                            // Actually, let's use a standard AR plane anchor for a quick test,
-//                            // OR just offset the lat/lng slightly.
-//
-//                            val testAnchor = earth.createAnchor(
-//                                52.5574944, // ~5 meters North
-//                                13.3591937,
-//                               87.3,
-//                                0f, 0f, 0f, 1f
-//                            )
-//
-//                            val testNode = AnchorNode(engine, anchor = testAnchor)
-//                            val boxNode = ModelNode(
-//                                modelInstance = modelLoader.createModelInstance("Box.glb"),
-//                                scaleToUnits = 1.0f
-//                            ).apply { position = Position(0f, 0f, 0f) }
-//
-//                            testNode.addChildNode(boxNode)
-//                            childNodes.add(testNode)
-//                            createdAnchors[9999L] = testNode
-//
-//                            Log.d("AR_DEBUG", "TEST BOX CREATED AT YOUR FEET!")
-//                        }
                             }
 
                         } else {
                             isLocalized = false
-                            vpsStatusMessage =
-                                "Scan buildings to refine location...\\n(Current Err: ${accuracy.toInt()}m)"
 
                         }
                     }
@@ -383,85 +349,6 @@ fun ARScreen(
                 }
 
             )
-
-            Column(
-                modifier = Modifier
-                    .padding(16.dp)
-                    .align(Alignment.TopStart)
-                    .background(
-                        if (isLocalized) Color.Green.copy(alpha = 0.6f) else Color.Red.copy(
-                            alpha = 0.6f
-                        ), RoundedCornerShape(8.dp)
-                    )
-                    .padding(8.dp)
-            )
-            {
-
-
-                // Status Box
-//            Surface (
-//                color = if (isLocalized) Color.Green.copy(alpha=0.6f) else Color.Red.copy(alpha=0.6f),
-//                shape = RoundedCornerShape(8.dp)
-//            ) {
-                Text(
-                    text = vpsStatusMessage,
-                    color = Color.White,
-
-                    )
-                val loc = uiState.userLocation
-                if (loc != null) {
-
-                    Text("Source: ${loc.provider}", color = Color.White)
-                    Text("Lat: ${loc.latitude}", color = Color.White)
-                    Text("Lng: ${loc.longitude}", color = Color.White)
-                    Text("Alt: ${loc.altitude}m", color = Color.White)
-                    Text("Acc: ${loc.accuracy}m", color = Color.White)
-                } else {
-                    Text("Location: NULL (Waiting...)", color = Color.Yellow)
-                }
-                Text(
-                    text = "Nearby POIs: ${uiState.nearbyPois.size}",
-                    color = Color.Green,
-                    fontWeight = FontWeight.Bold
-                )
-                uiState.nearbyPois.forEach { item ->
-                    // Calculate distance for debug
-                    val dist = if (loc != null) {
-                        val results = FloatArray(1)
-                        Location.distanceBetween(
-                            loc.latitude, loc.longitude,
-                            item.poi.latitude, item.poi.longitude,
-                            results
-                        )
-                        "${results[0].toInt()}m"
-                    } else "?"
-
-                    Text(
-                        text = "- ${item.poi.name} ($dist)",
-                        color = Color.White,
-                        fontSize = 12.sp
-                    )
-//                }
-                }
-                Spacer(modifier = Modifier.height(8.dp))
-                if (focusedPoiName != null) {
-                    Text(
-                        text = "Target Acquired",
-                        color = Color.Green,
-
-                        )
-                    Text(
-                        text = "Focusing: $focusedPoiName",
-                        color = Color.White
-                    )
-                } else {
-                    Text(
-                        text = "Scanning...",
-                        color = Color.Gray
-                    )
-                }
-            }
-
         }
     }
 }
@@ -472,19 +359,15 @@ fun PoiDetailsContent(poi: PoiWithDiscovery) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .padding(bottom = 32.dp) // Space for nav bar
+            .padding(horizontal = 16.dp)
+            .padding(bottom = 32.dp)
     ) {
         Text(
             text = poi.poi.name,
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold
         )
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = "Status: ${if (poi.discovery != null) "Discovered ✅" else "Locked 🔒"}",
-            color = if (poi.discovery != null) Color.Green else Color.Gray
-        )
+
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = poi.poi.description,
@@ -502,7 +385,7 @@ fun ScanHintContent(vpsStatus: String) {
             fontWeight = FontWeight.Bold,
             style = MaterialTheme.typography.titleMedium
         )
-        Text(vpsStatus, color = Color.Gray)
-        Spacer(Modifier.height(32.dp)) // Padding for peek height
+        Text(vpsStatus)
+        Spacer(Modifier.height(32.dp))
     }
 }
