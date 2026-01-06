@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -18,13 +19,17 @@ import com.jonathan.arberlin.ui.theme.ARBerlinTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.collectAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -84,33 +89,53 @@ fun ARBerlinAppContent() {
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
-                val navBackStackEntry by navController.currentBackStackEntryAsState()
-                val currentRoute = navBackStackEntry?.destination?.route
+            Surface(
+                shadowElevation = 7.dp,
+                color = Color.Transparent
+            ) {
 
-                Screen.entries.forEach { screen ->
 
-                    val isSelected = currentRoute == screen.route
-                    NavigationBarItem(
-                        icon = {
-                            Icon(
-                                painter = painterResource(
-                                    id = if (isSelected) screen.activeIcon else screen.inactiveIcon
-                                ),
-                                contentDescription = screen.title
-                            )
-                        },
-                        selected = isSelected,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) {
-                                    saveState = true
-                                }
-                                launchSingleTop = true
-                                restoreState = true
+                NavigationBar(
+                    containerColor = Color(0xFFFDFAFF),
+                    tonalElevation = 0.dp
+                ) {
+                    val navBackStackEntry by navController.currentBackStackEntryAsState()
+                    val currentRoute = navBackStackEntry?.destination?.route
+
+                    Screen.entries.forEach { screen ->
+
+                        val isSelected = when (screen) {
+                            Screen.Collections -> {
+                                currentRoute == Screen.Collections.route || currentRoute?.startsWith("poi_detail") == true
                             }
+                            else -> currentRoute == screen.route
                         }
-                    )
+
+                        NavigationBarItem(
+                            icon = {
+                                Icon(
+                                    painter = painterResource(
+                                        id = if (isSelected) screen.activeIcon else screen.inactiveIcon
+                                    ),
+                                    contentDescription = screen.title,
+                                    tint = Color.Unspecified
+                                )
+                            },
+                            selected = isSelected,
+                            onClick = {
+                                navController.navigate(screen.route) {
+                                    popUpTo(navController.graph.findStartDestination().id) {
+                                        saveState = true
+                                    }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                            },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = Color.Transparent
+                            )
+                        )
+                    }
                 }
             }
         }
@@ -137,7 +162,7 @@ fun ARBerlinAppContent() {
                     onPoiClick = { poiId ->
                         navController.navigate("poi_detail/$poiId")
                     },
-                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                    modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()).statusBarsPadding()
                 )
             }
 
@@ -154,7 +179,7 @@ fun ARBerlinAppContent() {
                     PoiDetailScreen(
                         poi = poi,
                         onBackClick = { navController.popBackStack() },
-                        modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding())
+                        modifier = Modifier.padding(bottom = innerPadding.calculateBottomPadding()).statusBarsPadding()
                     )
                 }
 
