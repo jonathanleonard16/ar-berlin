@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.google.android.filament.LightManager
 import com.google.ar.core.Anchor
 import com.google.ar.core.Config
 import com.google.ar.core.Earth
@@ -54,6 +55,7 @@ import com.jonathan.arberlin.data.local.entity.PoiWithDiscovery
 import io.github.sceneview.ar.ARScene
 import io.github.sceneview.ar.node.AnchorNode
 import io.github.sceneview.math.Position
+import io.github.sceneview.node.LightNode
 import io.github.sceneview.node.ModelNode
 import io.github.sceneview.node.Node
 import io.github.sceneview.rememberEngine
@@ -217,6 +219,8 @@ fun ARScreen(
     val materialLoader = rememberMaterialLoader(engine)
     val childNodes = rememberNodes()
     val createdAnchors = remember { mutableStateMapOf<Long, AnchorNode>() }
+    val pendingAnchors = remember { mutableSetOf<Long>() }
+    val currentModels = remember { mutableMapOf<Long, String>() }
 
     var isLocalized by remember { mutableStateOf(false) }
 
@@ -233,6 +237,31 @@ fun ARScreen(
         } else {
             scaffoldState.bottomSheetState.partialExpand()
         }
+    }
+
+    LaunchedEffect(Unit) {
+        val light1 = LightNode(
+            engine = engine,
+            type = LightManager.Type.DIRECTIONAL,
+            apply = {
+                color(1.0f, 1.0f, 1.0f)
+                intensity(110_000.0f)
+                direction(0.0f, -1.0f, 0.5f)
+                castShadows(true)
+            }
+        )
+        val light2 = LightNode(
+            engine = engine,
+            type = LightManager.Type.DIRECTIONAL,
+            apply = {
+                color(1.0f, 1.0f, 1.0f)
+                intensity(110_000.0f)
+                direction(0.0f, -1.0f, -0.5f)
+                castShadows(true)
+            }
+        )
+        childNodes.add(light1)
+        childNodes.add(light2)
     }
 
     BottomSheetScaffold(
@@ -276,6 +305,7 @@ fun ARScreen(
                     config.geospatialMode = Config.GeospatialMode.ENABLED
                     config.focusMode = Config.FocusMode.AUTO
                     config.streetscapeGeometryMode = Config.StreetscapeGeometryMode.ENABLED
+                    config.lightEstimationMode = Config.LightEstimationMode.ENVIRONMENTAL_HDR
                 },
                 onSessionUpdated = { session, frame ->
                     val earth = session.earth
@@ -303,42 +333,88 @@ fun ARScreen(
                             uiState.nearbyPois.forEach { item ->
                                 val poiId = item.poi.id
 
-                                if (!createdAnchors.containsKey(poiId)) {
-                                    Log.d(
-                                        "AR_DEBUG",
-                                        "Attempting to create anchor for ${item.poi.name}"
-                                    )
-                                    try {
+                                val targetModelFile =
+                                    if (item.discovery != null) "Checked.glb" else "Open.glb"
 
-                                        earth.resolveAnchorOnTerrainAsync(
-                                            item.poi.latitude,
-                                            item.poi.longitude,
-                                            0.0,
-                                            0f, 0f, 0f, 1f
-                                        ) { anchor, state ->
-                                            if (state == Anchor.TerrainAnchorState.SUCCESS && anchor != null) {
-                                                val anchorNode =
-                                                    AnchorNode(engine = engine, anchor = anchor)
-                                                Log.d("AR_DEBUG", "Anchor Created!")
-                                                val modelNode = ModelNode(
-                                                    modelInstance = modelLoader.createModelInstance(
-                                                        assetFileLocation = "Box.glb"
-                                                    ),
-                                                    scaleToUnits = 1.0f
-                                                )
-                                                anchorNode.addChildNode(modelNode)
-                                                childNodes.add(anchorNode)
-                                                createdAnchors[poiId] = anchorNode
+                                if (createdAnchors.containsKey(poiId)) {
+                                    val currentFile = currentModels[poiId]
+
+                                    if (currentFile != targetModelFile) {
+                                        Log.d("AR_DEBUG", "Swapping model file to $targetModelFile")
+                                        val anchorNode = createdAnchors[poiId]!!
+
+                                        val oldModelNode =
+                                            anchorNode.childNodes.firstOrNull { it is ModelNode } as? ModelNode
+
+                                        if (oldModelNode != null) {
+
+                                            anchorNode.removeChildNode(oldModelNode)
+                                            oldModelNode.destroy()
+
+                                            val newModelNode = ModelNode(
+                                                modelInstance = modelLoader.createModelInstance(targetModelFile),
+                                                scaleToUnits = 1.0f
+                                            )
+                                            anchorNode.addChildNode(newModelNode)
+
+                                            currentModels[poiId] = targetModelFile
+                                        }
+                                    }
+                                } else {
+
+                                    if (!pendingAnchors.contains(poiId)) {
+                                        pendingAnchors.add(poiId)
+
+                                        Log.d(
+                                            "AR_DEBUG",
+                                            "Attempting to create anchor for ${item.poi.name}"
+                                        )
+
+                                        try {
+
+                                            earth.resolveAnchorOnTerrainAsync(
+                                                item.poi.latitude,
+                                                item.poi.longitude,
+                                                0.0,
+                                                0f, 0f, 0f, 1f
+                                            ) { anchor, state ->
+                                                pendingAnchors.remove(poiId)
+                                                if (state == Anchor.TerrainAnchorState.SUCCESS && anchor != null) {
+                                                    val anchorNode =
+                                                        AnchorNode(engine = engine, anchor = anchor)
+                                                    Log.d("AR_DEBUG", "Anchor Created!")
+
+                                                    val modelFile = if (item.discovery != null) {
+                                                        "Checked.glb"
+                                                    } else {
+                                                        "Open.glb"
+                                                    }
+
+
+                                                    val modelNode = ModelNode(
+                                                        modelInstance = modelLoader.createModelInstance(
+                                                            assetFileLocation = modelFile
+                                                        ),
+                                                        scaleToUnits = 1.0f
+                                                    )
+
+                                                    anchorNode.addChildNode(modelNode)
+                                                    childNodes.add(anchorNode)
+                                                    createdAnchors[poiId] = anchorNode
+                                                    currentModels[poiId] = modelFile
+                                                }
+
                                             }
 
+                                            Log.d("AR_DEBUG", "Node added to scene")
+                                        } catch (e: Exception) {
+                                            Log.e("AR_DEBUG", "Error creating anchor", e)
+                                            pendingAnchors.remove(poiId)
                                         }
-
-                                        Log.d("AR_DEBUG", "Node added to scene")
-                                    } catch (e: Exception) {
-                                        Log.e("AR_DEBUG", "Error creating anchor", e)
                                     }
                                 }
                             }
+
 
                         } else {
                             isLocalized = false
