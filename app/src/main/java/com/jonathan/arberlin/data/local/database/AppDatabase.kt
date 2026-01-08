@@ -27,40 +27,6 @@ abstract class AppDatabase : RoomDatabase() {
                 }
             }
 
-        private val INITIAL_DATA = listOf(
-            PointOfInterest(
-                name = "Brandenburger Tor",
-                category = "Monument",
-                description = "Berlin's most famous landmark. A symbol of peace and unity.",
-                latitude = 52.5162746,
-                longitude = 13.377704,
-                audioFile = "",
-                imageFiles = ""
-            ),
-            PointOfInterest(
-
-                name = "Fernsehturm",
-                category = "Tower",
-                description = "The TV Tower. Highest building in Germany.",
-                latitude = 52.520815,
-                longitude = 13.409419,
-                audioFile = "",
-                imageFiles = ""
-            ),
-            PointOfInterest(
-
-                name = "Berliner Dom",
-                category = "Church",
-                description = "Berlin Cathedral. A stunning Neo-Renaissance church.",
-                latitude = 52.51906,
-                longitude = 13.40107,
-                audioFile = "",
-                imageFiles = ""
-            )
-        )
-
-
-
         private fun buildDatabaseInstance(context: Context) =
             Room.databaseBuilder(context.applicationContext, AppDatabase::class.java, "ar_berlin_db")
                 .fallbackToDestructiveMigration()
@@ -68,7 +34,7 @@ abstract class AppDatabase : RoomDatabase() {
                     override fun onCreate(db: SupportSQLiteDatabase) {
                         super.onCreate(db)
                         CoroutineScope(Dispatchers.IO).launch {
-                            getDatabaseInstance(context).poiDao().insertAll(INITIAL_DATA)
+                            getDatabaseInstance(context).poiDao().insertAll(InitialData.poiList)
                         }
                     }
                 })
