@@ -322,6 +322,106 @@ object InitialData {
             imageFiles = "Franziskaner_Klosterkirche_in_der_Mitte_von_Berlin.jpg"
         ),
 
+
+       PointOfInterest(
+           name = "Brunnenplatz",
+           category = "Park",
+           description = "A charming park located in Berlin, known for its lush greenery and relaxing atmosphere. Families appreciate the spacious area where children can play freely, while adults enjoy the shady spots perfect for conversations and unwinding.",
+           latitude = 52.55028060397764, 
+           longitude = 13.376541947779536,
+           audioFile = "",
+           imageFiles = "Gesundbrunnen_Brunnenschale_mit_Fontäne_am_Brunnenplatz.jpg"
+       ),
+
+       PointOfInterest(
+           name = "Springbrunnen im Lustgarten",
+           category = "Tourist Attraction",
+           description = "A modern, tiered water feature with irregularly shaped iron plates, serving as a tranquil centerpiece in the historic square, popular for photos with the Berliner Dom (Cathedral) and Altes Museum in the background, and often used during events like the Festival of Lights. It replaced an earlier 19th-century fountain and is designed to offer a serene escape, contrasting with the grand architecture surrounding it.",
+           latitude = 52.51858726773706, 
+           longitude = 13.399688012783404,
+           audioFile = "",
+           imageFiles = "Lustgarten_Berlin_Springbrunnen.jpg"
+       ),
+
+       PointOfInterest(
+           name = "Muse Polyhymnia",
+           category = "Sculpture",
+           description = "A significant Baroque sandstone sculpture, originally from the Academy of Arts building on Unter den Linden, placed in the park around 1910 as a focal point (Point de vue). This statue represents Polyhymnia, the Greek Muse of sacred poetry, hymn, and eloquence, depicted sitting thoughtfully in a long cloak on a rocky outcrop, serving as a historic art piece within the popular public park in Wedding.",
+           latitude = 52.55900100737323, 
+           longitude = 13.344652767594082,
+           audioFile = "",
+           imageFiles = "Skulptur_Polyhymnia_Schillerpark_Berlin-Wedding_04.jpg"
+       ),
+
+       PointOfInterest(
+           name = "Amazon on Horseback (by August Kiss)",
+           category = "Sculpture",
+           description = "A famous 19th-century bronze equestrian sculpture, formally called Amazone zu Pferde, depicting a female warrior fighting a panther, representing dynamism and struggle, and is a key work of the Berlin School of Sculpture.",
+           latitude = 52.5192985853722,
+           longitude = 13.399261862946862,
+           audioFile = "",
+           imageFiles = "Kiss_1841_Amazone,_am_Alten_Museum.jpg"
+       ),
+
+       PointOfInterest(
+           name = "The Lion Fighter (by Albert Wolff)",
+           category = "Sculpture",
+           description = "A famous 1858 bronze equestrian sculpture depicting a man on a rearing horse fighting a lion, serving as a significant landmark and artwork in the city. It's known for its dramatic action, showing the rider spearing the lion while the beast claws the horse, with detailed scars adding to its narrative.",
+           latitude = 52.519164893410796,
+           longitude =  13.398894044387342,
+           audioFile = "",
+           imageFiles = "The_Lion_Fighter_by_Albert_Wolff_(25987899878).jpg"
+       ),
+
+       PointOfInterest(
+           name = "Granite Bowl",
+           category = "Historical Landmark",
+           description = "A massive, nearly 7-meter wide, 75-ton granite basin, a Biedermeier era marvel carved from a single stone, famous for its immense size and historical significance as a symbol of Prussian engineering and royal ambition, earning the nickname \"Berlin soup bowl\". Commissioned by King Frederick William III in the 1820s to outdo a British rival, it became a famous landmark, a technical wonder, and a patriotic symbol, despite shattering during a move and being repaired, with its base replaced later.",
+           latitude = 52.51910199948168, 
+           longitude = 13.399152923754167,
+           audioFile = "",
+           imageFiles = "Berlin,_Mitte,_Lustgarten,_Granitschale.jpg"
+       ),
+
+       PointOfInterest(
+           name = "Altes Museum",
+           category = "History Museum",
+           description = "A major Neoclassical building on Museum Island housing the Collection of Classical Antiquities, featuring Greek, Etruscan, and Roman art, including famous busts of Caesar and Cleopatra, and the largest collection of Etruscan art outside Italy. As Berlin's first museum, it opened in 1830 as an educational institution for the public, emphasizing classical antiquity, and is a UNESCO World Heritage sitea major Neoclassical building on Museum Island housing the Collection of Classical Antiquities, featuring Greek, Etruscan, and Roman art, including famous busts of Caesar and Cleopatra, and the largest collection of Etruscan art outside Italy. As Berlin's first museum, it opened in 1830 as an educational institution for the public, emphasizing classical antiquity, and is a UNESCO World Heritage site.",
+           latitude = 52.51932796348008, 
+           longitude = 13.398974821175676,
+           audioFile = "",
+           imageFiles = "Altes_Museum,_Berlin-Mitte,_170117,_ako.jpg"
+       ),
+
+       PointOfInterest(
+           name = "Rosa Luxemburg Memorial",
+           category = "Cultural Landmark",
+           description = "The spot where the revolutionary socialist's body was thrown into the Landwehr Canal in January 1919 after she was murdered by right-wing soldiers during the Spartacist uprising. The modern memorial, designed by architects Ralf Schüler and Ursulina Schüler-Witte in 1987, features bronze block letters spelling \"ROSA LUXEMBURG\" emerging from the water and a nearby plaque detailing her story, serving as a poignant reminder of her life and tragic end.",
+           latitude = 52.50894142197843, 
+           longitude = 13.34320866517959,
+           audioFile = "",
+           imageFiles = "RosaLuxBer.jpg"
+       ),
+
+       PointOfInterest(
+           name = "Lortzing Monument",
+           category = "Memorial",
+           description = "A statue in the Großer Tiergarten honoring German composer and social critic Albert Lortzing (1801-1851), famous for operas like Zar und Zimmermann and Der Wildschütz; sculpted by Gustav Eberlein and erected in 1904, it portrays Lortzing in a dandyish style, representing a notable piece of Wilhelminian-era public art.",
+           latitude = 52.51284138405545, 
+           longitude = 13.357532042264106,
+           audioFile = "",
+           imageFiles = "AlbertLortzing.jpg"
+       ),
+
+       PointOfInterest(
+           name = "Queen Louise Statue",
+           category = "Historical Landmark",
+           description = "A beloved marble monument in the Tiergarten, honoring the revered Prussian Queen Louise, wife of King Friedrich Wilhelm III, who was known for her beauty and charity; it was erected in 1808, depicting her as a young queen in a serene garden setting, symbolizing Prussian patriotism and resilience.",
+           latitude = 52.510816771830875, 
+           longitude = 13.364552505991407,
+           audioFile = "",
+           imageFiles = "Berlin_-_Tiergarten_Luisendenkmal.jpg"
+       ),
 //        PointOfInterest(
 //            name = "",
 //            category = "",
