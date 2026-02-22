@@ -320,7 +320,7 @@ fun ARScreen(
                         val accuracy = pose.horizontalAccuracy
                         val orientationAccuracy = pose.orientationYawAccuracy
 
-                        val isPrecise = accuracy < 5.0 && orientationAccuracy < 10.0
+                        val isPrecise = accuracy < 5.0 && orientationAccuracy < 5.0
 
 
 
